@@ -26,8 +26,8 @@ help()
     echo "    -d      cluster uses dedicated masters"
     echo "    -Z      <number of nodes> hint to the install script how many data nodes we are provisioning"
 
-    echo "    -B      bootstrap password" 
-    echo "    -A      elastic user password"  
+    echo "    -A      admin password"
+    echo "    -R      read password"
     echo "    -K      kibana user password"
     echo "    -S      logstash_system user password"
     echo "    -F      beats_system user password"
@@ -150,7 +150,7 @@ SAML_METADATA_URI=""
 SAML_SP_URI=""
 
 #Loop through options passed
-while getopts :n:m:v:A:R:M:K:S:F:Z:p:a:k:L:C:B:E:H:G:T:W:V:J:N:D:O:P:xyzldjh optname; do
+while getopts :n:m:v:A:R:M:K:S:F:Z:p:a:k:L:C:B:E:H:G:T:W:V:J:N:D:O:P:X:xyzldjh optname; do
   log "Option $optname set"
   case $optname in
     n) #set cluster name
@@ -165,8 +165,8 @@ while getopts :n:m:v:A:R:M:K:S:F:Z:p:a:k:L:C:B:E:H:G:T:W:V:J:N:D:O:P:xyzldjh opt
     A) #security admin pwd
       USER_ADMIN_PWD="${OPTARG}"
       ;;
-    R) #security remote_monitoring_user pwd
-      USER_REMOTE_MONITORING_PWD="${OPTARG}"
+    R) #security readonly pwd
+      USER_READ_PWD="${OPTARG}"
       ;;
     K) #security kibana user pwd
       USER_KIBANA_PWD="${OPTARG}"
@@ -595,26 +595,33 @@ apply_security_settings()
         log "[apply_security_settings] updated built-in beats_system user password"
       fi
 
-      
-      if dpkg --compare-versions "$ES_VERSION" "ge" "6.5.0"; then
-        #update builtin `apm_system` account for Elasticsearch 6.5.0+
-        local APM_JSON=$(printf '{"password":"%s"}\n' $USER_APM_PWD)
-        echo $APM_JSON | curl_ignore_409 -XPUT -u "elastic:$USER_ADMIN_PWD" "$XPACK_USER_ENDPOINT/apm_system/_password" -d @-
-        if [[ $? != 0 ]];  then
-          log "[apply_security_settings] could not update the built-in apm_system user"
-          exit 10
-        fi
-        log "[apply_security_settings] updated built-in apm_system user password"
-      
-        #update builtin `remote_monitoring_user` account for Elasticsearch 6.5.0+
-        local REMOTE_MONITORING_JSON=$(printf '{"password":"%s"}\n' $USER_REMOTE_MONITORING_PWD)
-        echo $REMOTE_MONITORING_JSON | curl_ignore_409 -XPUT -u "elastic:$USER_ADMIN_PWD" "$XPACK_USER_ENDPOINT/remote_monitoring_user/_password" -d @-
-        if [[ $? != 0 ]];  then
-          log "[apply_security_settings] could not update the built-in remote_monitoring_user user"
-          exit 10
-        fi
-        log "[apply_security_settings] updated built-in remote_monitoring_user user password"     
-      fi   
+      #added as part of upgrade
+      #create a readonly role that mimics the `user` role in the old shield plugin
+      curl_ignore_409 -XPOST -u "elastic:$USER_ADMIN_PWD" "$XPACK_ROLE_ENDPOINT/user" -d'
+      {
+        "cluster": [ "monitor" ],
+        "indices": [
+          {
+            "names": [ "*" ],
+            "privileges": [ "read", "monitor", "view_index_metadata" ]
+          }
+        ]
+      }'
+      if [[ $? != 0 ]]; then
+        log "[apply_security_settings] could not create user role"
+        exit 10
+      fi
+      log "[apply_security_settings] added user role"
+
+      # add `es_read` user with the newly created `user` role
+      local USER_JSON=$(printf '{"password":"%s","roles":["user"]}\n' $USER_READ_PWD)
+      echo $USER_JSON | curl_ignore_409 -XPOST -u "elastic:$USER_ADMIN_PWD" "$XPACK_USER_ENDPOINT/es_read" -d @-
+      if [[ $? != 0 ]]; then
+        log "[apply_security_settings] could not add es_read"
+        exit 10
+      fi
+      log "[apply_security_settings] added es_read account"
+      log "[apply_security_settings] updated roles and users"
     fi
 }
 
@@ -1102,6 +1109,67 @@ configure_elasticsearch()
     sed -i -e "s/^\-Xms.*/-Xms${ES_HEAP}m/" /etc/elasticsearch/jvm.options
 }
 
+consul_registration_ip() {
+    case $CNP_ENV in
+        # TODO automate determining these IP addresses as they may change
+        # These are the IPs of the first node in the Consul cluster
+        sandbox)
+            echo 10.100.136.5
+            ;;
+        saat)
+            echo 10.100.72.4
+            ;;
+        sprod)
+            echo 10.100.8.7
+            ;;
+        demo)
+            echo 10.96.200.4
+            ;;
+        aat)
+            echo 10.96.136.7
+            ;;
+        prod)
+            echo 10.96.72.4
+            ;;
+        perftest)
+            echo 10.112.136.4
+            ;;
+        ithc)
+            echo 10.112.8.4
+            ;;
+        ethosldata)
+            echo 10.14.8.4
+            ;;
+        *)
+            log "[configure_dns] ERROR '$CNP_ENV' is an unkown Consul target"
+            # Add any missing environments
+            echo ""
+            ;;
+    esac
+}
+
+
+register_dns () {
+  hostname=$1
+  ip=$2
+
+  tmp_file=$(mktemp)
+  cat > $tmp_file <<-EOF
+    {
+    "ID": "$hostname",
+    "Name": "$hostname",
+    "Tags": [],
+    "Address": "$ip",
+    "Port": 443
+    }
+EOF
+
+  log "[configure_dns] registering DNS, hostname: $hostname, IP: $ip, env: $CNP_ENV, env: $(consul_registration_ip)"
+  log "[configure_dns] Consul DNS data: $(cat $tmp_file)"
+  curl -T "$tmp_file" "http://$(consul_registration_ip):8500/v1/agent/service/register"
+
+  rm $tmp_file
+}
 configure_os_properties()
 {
     log "[configure_os_properties] configuring operating system level configuration"

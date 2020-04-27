@@ -1890,10 +1890,11 @@
       "vmDataNodeStorageAccountType": "[variables('dataSkuSettings')[parameters('vmSizeDataNodes')].storageAccountType]",
       "vmDataNodeAcceleratedNetworking": "[parameters('vmDataNodeAcceleratedNetworking')]",
       "vmHostNamePrefix": "[parameters('vmHostNamePrefix')]",
+      "cnpEnv": "[parameters('cnpEnv')]",
       "vmClientNodeCount": "[parameters('vmClientNodeCount')]",
       "vmSizeClientNodes": "[parameters('vmSizeClientNodes')]",
       "vmClientNodeAcceleratedNetworking": "[parameters('vmClientNodeAcceleratedNetworking')]",
-      "vNetLoadBalancerIp": "[variables('vNetLoadBalancerIp')]",
+      "vNetLoadBalancerIp": "[parameters('vNetLoadBalancerIp')]",
       "vmSizeMasterNodes": "[parameters('vmSizeMasterNodes')]",
       "vmMasterNodeAcceleratedNetworking": "[parameters('vmMasterNodeAcceleratedNetworking')]",
       "vmSizeKibana": "[parameters('vmSizeKibana')]",
@@ -1943,10 +1944,13 @@
     },
     "commonVmSettings": {
       "namespacePrefix": "[parameters('vmHostNamePrefix')]",
+      "cnpEnv": "[parameters('cnpEnv')]",
       "storageAccountName": "[concat('elastic', uniqueString(resourceGroup().id, deployment().name))]",
       "location": "[variables('location')]",
       "subnet": "[variables('networkSettings').subnet]",
-      "subnetId": "[resourceId(variables('networkSettings').resourceGroup, 'Microsoft.Network/virtualNetworks/subnets', variables('networkSettings').name, variables('networkSettings').subnet.name)]",
+      "subnetId": "[concat(resourceId(variables('networkSettings').resourceGroup, 'Microsoft.Network/virtualNetworks', variables('networkSettings').name), '/subnets/', variables('networkSettings').subnet.name)]",
+      "logAnalyticsId": "[parameters('logAnalyticsId')]",
+      "logAnalyticsKey": "[parameters('logAnalyticsKey')]",
       "credentials": {
         "adminUsername": "[parameters('adminUsername')]",
         "password": "[parameters('adminPassword')]",
@@ -1967,9 +1971,9 @@
     },
     "kibanaIpTemplates": {
       "No": "empty/empty-kibana-ip-resources.json",
-      "Yes": "ips/kibana-ip-resources.json"
+      "Yes": "empty/empty-kibana-ip-resources.json"
     },
-    "kibanaIpTemplateUrl": "[uri(parameters('_artifactsLocation'), concat(variables('kibanaIpTemplates')[variables('topologySettings').kibana], parameters('_artifactsLocationSasToken')))]"
+    "kibanaIpTemplateUrl": "[concat(variables('templateBaseUrl'), variables('kibanaIpTemplates')[variables('topologySettings').kibana])]"
   },
   "resources": [
     {

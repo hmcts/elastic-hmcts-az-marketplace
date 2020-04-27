@@ -80,7 +80,7 @@ HTTP_CACERT_PASSWORD=""
 SAML_SP_URI=""
 
 #Loop through options passed
-while getopts :n:v:u:S:C:K:P:Y:H:G:V:J:U:lh optname; do
+while getopts :n:v:u:S:C:K:P:Y:H:G:V:J:U:X:lh optname; do
   log "Option $optname set"
   case $optname in
     n) #set cluster name
@@ -125,6 +125,9 @@ while getopts :n:v:u:S:C:K:P:Y:H:G:V:J:U:lh optname; do
     Y) #kibana additional yml configuration
       YAML_CONFIGURATION="${OPTARG}"
       ;;
+    X) #CNP environment for DNS setup
+      CNP_ENV="${OPTARG}"
+      ;;    
     h) #show help
       help
       exit 2
@@ -154,12 +157,6 @@ log "Kibana will talk to Elasticsearch over $ELASTICSEARCH_URL"
 #########################
 # Installation steps as functions
 #########################
-
-random_password()
-{ 
-  < /dev/urandom tr -dc '!@#$%_A-Z-a-z-0-9' | head -c${1:-64}
-  echo
-}
 
 install_kibana()
 {
@@ -202,6 +199,14 @@ install_kibana()
 
 ## Security
 ##----------------------------------
+
+install_pwgen()
+{
+    log "[install_pwgen] Installing pwgen tool if needed"
+    if [ $(dpkg-query -W -f='${Status}' pwgen 2>/dev/null | grep -c "ok installed") -eq 0 ]; then
+      (apt-get -yq install pwgen || (sleep 15; apt-get -yq install pwgen))
+    fi
+}
 
 configure_kibana_yaml()
 {
@@ -400,7 +405,87 @@ install_apt_package()
 
 install_yamllint()
 {
-    install_apt_package yamllint
+install_yamllint()
+{
+    log "[install_yamllint] installing yamllint"
+    (apt-get -yq install yamllint || (sleep 15; apt-get -yq install yamllint))
+    log "[install_yamllint] installed yamllint"
+}
+I
+consul_registration_ip() {
+    case $CNP_ENV in
+        # TODO automate determining these IP addresses as they may change
+        # These are the IPs of the first node in the Consul cluster
+        sandbox)
+            echo 10.100.136.5
+            ;;
+        saat)
+            echo 10.100.72.4
+            ;;
+        sprod)
+            echo 10.100.8.7
+            ;;
+        demo)
+            echo 10.96.200.4
+            ;;
+        aat)
+            echo 10.96.136.7
+            ;;
+        prod)
+            echo 10.96.72.4
+            ;;
+        perftest)
+            echo 10.112.136.4
+            ;;
+        ithc)
+            echo 10.112.8.4
+            ;;
+        ethosldata)
+            echo 10.14.8.4
+            ;;
+        *)
+            log "[configure_dns] ERROR '$CNP_ENV' is an unkown Consul target"
+            # Add any missing environments
+            echo ""
+            ;;
+    esac
+}
+
+
+register_dns () {
+  hostname=$1
+  ip=$2
+
+  tmp_file=$(mktemp)
+  cat > $tmp_file <<-EOF
+    {
+    "ID": "$hostname",
+    "Name": "$hostname",
+    "Tags": [],
+    "Address": "$ip",
+    "Port": 443
+    }
+EOF
+
+  log "[configure_dns] registering DNS, hostname: $hostname, IP: $ip, env: $CNP_ENV, env: $(consul_registration_ip)"
+  log "[configure_dns] Consul DNS data: $(cat $tmp_file)"
+  curl -T "$tmp_file" "http://$(consul_registration_ip):8500/v1/agent/service/register"
+
+  rm $tmp_file
+}
+configure_os_properties()
+{
+    log "[configure_os_properties] configuring operating system level configuration"
+
+    # DNS Retry
+    log "[configure_dns] configuring DNS retry and search"
+    echo "options timeout:10 attempts:5" >> /etc/resolvconf/resolv.conf.d/head
+    echo "search  service.core-compute-${CNP_ENV}.internal" >> /etc/resolvconf/resolv.conf.d/base
+    resolvconf -u
+
+    register_dns $(hostname) $(hostname -I)
+
+    log "[configure_os_properties] configured operating system level configuration"
 }
 
 configure_systemd()
@@ -435,17 +520,14 @@ if systemctl -q is-active kibana.service; then
 fi
 
 log "[apt-get] updating apt-get"
-(apt-get -y update || (sleep 15; apt-get -y update))
-EXIT_CODE=$?
-if [[ $EXIT_CODE -ne 0 ]]; then
-  log "[apt-get] failed updating apt-get. exit code: $EXIT_CODE"
-  exit $EXIT_CODE
-fi
+(apt-get -y update || (sleep 15; apt-get -y update)) > /dev/null
 log "[apt-get] updated apt-get"
 
 install_kibana
 
 configure_kibana_yaml
+
+configure_os_properties
 
 configure_systemd
 
