@@ -161,32 +161,7 @@
       "Standard_M64m",
       "Standard_M128",
       "Standard_M128m"
-    ],
-    "vmNsgName": "[concat(parameters('commonVmSettings').namespacePrefix, 'standard-lb-nsg')]",
-    "vmNsgProperties": [
-      {},
-      {
-        "securityRules": [
-          {
-            "name": "External",
-            "properties": {
-              "description": "Allows inbound traffic from Standard External LB",
-              "protocol": "Tcp",
-              "sourcePortRange": "*",
-              "destinationPortRange": "9201",
-              "sourceAddressPrefix": "*",
-              "destinationAddressPrefix": "*",
-              "access": "Allow",
-              "priority": 100,
-              "direction": "Inbound"
-            }
-          }
         ]
-      }
-    ],
-    "standardInternalLoadBalancer": "[equals(parameters('networkSettings').internalSku, 'Standard')]",
-    "standardExternalLoadBalancer": "[equals(parameters('networkSettings').externalSku, 'Standard')]",
-    "standardInternalOrExternalLoadBalancer": "[or(variables('standardInternalLoadBalancer'), variables('standardExternalLoadBalancer'))]"
   },
   "resources": [
     {
@@ -216,12 +191,11 @@
               "size": "[parameters('topologySettings').vmSizeMasterNodes]",
               "storageAccountType": "Standard_LRS",
               "count": 3,
+              "useBackendPools": "No",
               "backendPools": [],
               "imageReference": "[parameters('osSettings').imageReference]",
               "platformFaultDomainCount": "[variables('platformFaultDomainCount')]",
-              "acceleratedNetworking": "[if(equals(parameters('topologySettings').vmMasterNodeAcceleratedNetworking, 'Default'), if(contains(variables('vmAcceleratedNetworking'), parameters('topologySettings').vmSizeMasterNodes), 'Yes', 'No'), parameters('topologySettings').vmMasterNodeAcceleratedNetworking)]",
-              "nsg": "",
-              "standardInternalLoadBalancer": false
+              "acceleratedNetworking": "[if(equals(parameters('topologySettings').vmMasterNodeAcceleratedNetworking, 'Default'), if(contains(variables('vmAcceleratedNetworking'), parameters('topologySettings').vmSizeMasterNodes), 'Yes', 'No'), parameters('topologySettings').vmMasterNodeAcceleratedNetworking)]"
             }
           },
           "elasticTags": {
@@ -231,24 +205,11 @@
       }
     },
     {
-      "condition": "[variables('standardInternalOrExternalLoadBalancer')]",
-      "apiVersion": "2019-04-01",
-      "type": "Microsoft.Network/networkSecurityGroups",
-      "name": "[variables('vmNsgName')]",
-      "location": "[parameters('commonVmSettings').location]",
-      "tags": {
-        "provider": "[toUpper(parameters('elasticTags').provider)]"
-      },
-      "properties": "[variables('vmNsgProperties')[if(variables('standardExternalLoadBalancer'), 1, 0)]]"
-    },
-    {
       "condition": "[greater(parameters('topologySettings').vmClientNodeCount, 0)]",
       "name": "client-nodes",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2019-05-01",
-      "dependsOn": [
-        "[variables('vmNsgName')]"
-      ],
+      "dependsOn": [],
       "properties": {
         "mode": "Incremental",
         "templateLink": {
@@ -270,12 +231,11 @@
               "size": "[parameters('topologySettings').vmSizeClientNodes]",
               "count": "[parameters('topologySettings').vmClientNodeCount]",
               "storageAccountType": "Standard_LRS",
+              "useBackendPools": "Yes",
               "backendPools": "[parameters('topologySettings').loadBalancerBackEndPools]",
               "imageReference": "[parameters('osSettings').imageReference]",
               "platformFaultDomainCount": "[variables('platformFaultDomainCount')]",
-              "acceleratedNetworking": "[if(equals(parameters('topologySettings').vmClientNodeAcceleratedNetworking, 'Default'), if(contains(variables('vmAcceleratedNetworking'), parameters('topologySettings').vmSizeClientNodes), 'Yes', 'No'), parameters('topologySettings').vmClientNodeAcceleratedNetworking)]",
-              "nsg": "[if(variables('standardInternalOrExternalLoadBalancer'), variables('vmNsgName'), '')]",
-              "standardInternalLoadBalancer": "[variables('standardInternalLoadBalancer')]"
+              "acceleratedNetworking": "[if(equals(parameters('topologySettings').vmClientNodeAcceleratedNetworking, 'Default'), if(contains(variables('vmAcceleratedNetworking'), parameters('topologySettings').vmSizeClientNodes), 'Yes', 'No'), parameters('topologySettings').vmClientNodeAcceleratedNetworking)]"
             }
           },
           "elasticTags": {
@@ -288,9 +248,7 @@
       "name": "data-nodes",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2019-05-01",
-      "dependsOn": [
-        "[variables('vmNsgName')]"
-      ],
+      "dependsOn": [],
       "properties": {
         "mode": "Incremental",
         "templateLink": {
@@ -312,12 +270,11 @@
               "size": "[parameters('topologySettings').vmSizeDataNodes]",
               "storageAccountType": "[parameters('topologySettings').vmDataNodeStorageAccountType]",
               "count": "[parameters('topologySettings').vmDataNodeCount]",
+              "useBackendPools": "Yes",
               "backendPools": "[parameters('topologySettings').dataLoadBalancerBackEndPools]",
               "imageReference": "[parameters('osSettings').imageReference]",
               "platformFaultDomainCount": "[variables('platformFaultDomainCount')]",
-              "acceleratedNetworking": "[if(equals(parameters('topologySettings').vmDataNodeAcceleratedNetworking, 'Default'), if(contains(variables('vmAcceleratedNetworking'), parameters('topologySettings').vmSizeDataNodes), 'Yes', 'No'), parameters('topologySettings').vmDataNodeAcceleratedNetworking)]",
-              "nsg": "[if(and(variables('standardInternalOrExternalLoadBalancer'), equals(parameters('topologySettings').vmClientNodeCount, 0)), variables('vmNsgName'), '')]",
-              "standardInternalLoadBalancer": "[variables('standardInternalLoadBalancer')]"
+              "acceleratedNetworking": "[if(equals(parameters('topologySettings').vmDataNodeAcceleratedNetworking, 'Default'), if(contains(variables('vmAcceleratedNetworking'), parameters('topologySettings').vmSizeDataNodes), 'Yes', 'No'), parameters('topologySettings').vmDataNodeAcceleratedNetworking)]"
             }
           },
           "storageSettings": {
@@ -397,6 +354,12 @@
           },
           "elasticTags": {
             "value": "[parameters('elasticTags')]"
+          },
+          "logAnalyticsId": {
+            "value": "[parameters('commonVmSettings').logAnalyticsId]"
+          },
+          "logAnalyticsKey": {
+            "value": "[parameters('commonVmSettings').logAnalyticsKey]"
           }
         }
       }

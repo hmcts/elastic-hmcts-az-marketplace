@@ -58,12 +58,25 @@
       "metadata": {
         "description": "Unique identifiers to allow the Azure Infrastructure to understand the origin of resources deployed to Azure. You do not need to supply a value for this."
       }
+    },
+    "logAnalyticsId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Log Analytics ID"
+      }
+    },
+    "logAnalyticsKey": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Log Analytics Key"
+      }
     }
   },
   "variables": {
     "namespace": "[parameters('namespace')]",
-    "subnetId": "[resourceId(parameters('networkSettings').resourceGroup, 'Microsoft.Network/virtualNetworks/subnets', parameters('networkSettings').name, parameters('networkSettings').subnet.name)]",
-    "publicIpName": "[concat(variables('namespace'), '-ip')]",
+    "subnetId": "[concat(resourceId(parameters('networkSettings').resourceGroup, 'Microsoft.Network/virtualNetworks', parameters('networkSettings').name), '/subnets/', parameters('networkSettings').subnet.name)]",    
     "securityGroupName": "[concat(variables('namespace'), '-nsg')]",
     "nicName": "[concat(variables('namespace'), '-nic')]",
     "password_osProfile": {
@@ -90,6 +103,16 @@
   },
   "resources": [
     {
+      "name": "[concat(variables('namespace'), '-asg')]",
+      "type": "Microsoft.Network/applicationSecurityGroups",
+      "apiVersion": "2018-08-01",
+      "location": "[parameters('location')]",
+      "tags": {
+        "provider": "[toUpper(parameters('elasticTags').provider)]"
+      },
+      "properties": {}
+    },
+    {
       "apiVersion": "2019-04-01",
       "type": "Microsoft.Network/networkSecurityGroups",
       "name": "[variables('securityGroupName')]",
@@ -102,11 +125,11 @@
           {
             "name": "SSH",
             "properties": {
-              "description": "Allows inbound SSH traffic from anyone",
+              "description": "Allows inbound SSH traffic from VirtualNetwork",
               "protocol": "Tcp",
               "sourcePortRange": "*",
               "destinationPortRange": "[parameters('osSettings').managementPort]",
-              "sourceAddressPrefix": "*",
+              "sourceAddressPrefix": "VirtualNetwork",
               "destinationAddressPrefix": "*",
               "access": "Allow",
               "priority": 100,
@@ -116,11 +139,11 @@
           {
             "name": "Kibana",
             "properties": {
-              "description": "Allows inbound Kibana traffic from anyone",
+              "description": "Allows inbound Kibana HTTP traffic from VirtualNetwork",
               "protocol": "Tcp",
               "sourcePortRange": "*",
               "destinationPortRange": "5601",
-              "sourceAddressPrefix": "*",
+              "sourceAddressPrefix": "VirtualNetwork",
               "destinationAddressPrefix": "*",
               "access": "Allow",
               "priority": 200,
@@ -139,7 +162,8 @@
         "provider": "[toUpper(parameters('elasticTags').provider)]"
       },
       "dependsOn": [
-        "[concat('Microsoft.Network/networkSecurityGroups/', variables('securityGroupName'))]"
+        "[concat('Microsoft.Network/networkSecurityGroups/', variables('securityGroupName'))]",
+        "[concat('Microsoft.Network/applicationSecurityGroups/', variables('namespace'), '-asg')]"
       ],
       "properties": {
         "primary": true,
@@ -149,12 +173,14 @@
             "name": "ipconfig1",
             "properties": {
               "privateIPAllocationMethod": "Dynamic",
-              "publicIPAddress": {
-                "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIpName'))]"
-              },
               "subnet": {
                 "id": "[variables('subnetId')]"
-              }
+              },
+              "applicationSecurityGroups": [
+                {
+                  "id": "[resourceId('Microsoft.Network/applicationSecurityGroups', concat(variables('namespace'), '-asg'))]"
+                }
+              ]
             }
           }
         ],
@@ -208,6 +234,8 @@
             "[concat('Microsoft.Compute/virtualMachines/', parameters('namespace'))]"
           ],
           "properties": "[parameters('osSettings').extensionSettings.kibana]"
+        
+          
         }
       ]
     }

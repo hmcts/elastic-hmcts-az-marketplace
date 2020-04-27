@@ -45,8 +45,7 @@
         "name": "Standard_LRS"
       },
       "kind": "Storage",
-      "properties": {
-      },
+      "properties": {},
       "tags": {
         "provider": "[toUpper(parameters('elasticTags').provider)]"
       }

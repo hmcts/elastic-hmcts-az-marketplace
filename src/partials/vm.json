@@ -17,7 +17,7 @@
     "availabilitySet": {
       "type": "string",
       "metadata": {
-        "description": "The name of the availability set"
+        "description": "Base uri of resources"
       }
     },
     "dataDisks": {
@@ -62,75 +62,9 @@
         }
       }
     },
-    "osProfile": "[variables(concat(parameters('vm').shared.credentials.authenticationType, '_osProfile'))]",
-    "publicIpName": "[concat(variables('namespace'), parameters('index'), '-ip')]",
-    "nsgIpConfigs": [
-      {},
-      {
-        "networkSecurityGroup": {
-          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('vm').nsg)]"
-        }
-      },
-      {
-        "networkSecurityGroup": {
-          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('vm').nsg)]"
-        },
-        "ipConfigurations": [
-          {
-            "name": "ipconfig1",
-            "properties": {
-              "primary": true,
-              "privateIPAllocationMethod": "Dynamic",
-              "subnet": {
-                "id": "[parameters('vm').shared.subnetId]"
-              },
-              "loadBalancerBackendAddressPools": "[parameters('vm').backendPools]",
-              "publicIPAddress": {
-                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
-              }
-            }
-          }
-        ]
-      }
-    ],
-    "nsgIpConfig": "[variables('nsgIpConfigs')[if(empty(parameters('vm').nsg), 0, if(parameters('vm').standardInternalLoadBalancer, 2, 1))]]",
-    "nicProperties": {
-      "primary": true,
-      "enableAcceleratedNetworking": "[equals(parameters('vm').acceleratedNetworking, 'Yes')]",
-      "ipConfigurations": [
-        {
-          "name": "ipconfig1",
-          "properties": {
-            "privateIPAllocationMethod": "Dynamic",
-            "subnet": {
-              "id": "[parameters('vm').shared.subnetId]"
-            },
-            "loadBalancerBackendAddressPools": "[parameters('vm').backendPools]"
-          }
-        }
-      ]
-    }
+    "osProfile": "[variables(concat(parameters('vm').shared.credentials.authenticationType, '_osProfile'))]"
   },
   "resources": [
-    {
-      "condition": "[and(not(empty(parameters('vm').nsg)), parameters('vm').standardInternalLoadBalancer)]",
-      "apiVersion": "2019-04-01",
-      "type": "Microsoft.Network/publicIPAddresses",
-      "name": "[variables('publicIpName')]",
-      "location": "[parameters('vm').shared.location]",
-      "sku": {
-        "name": "Standard"
-      },
-      "tags": {
-        "provider": "[toUpper(parameters('elasticTags').provider)]"
-      },
-      "properties": {
-        "publicIPAllocationMethod": "Static",
-        "dnsSettings": {
-          "domainNameLabel": "[concat(variables('namespace'), parameters('index'), uniqueString(resourceGroup().id, deployment().name))]"
-        }
-      }
-    },
     {
       "apiVersion": "2019-04-01",
       "type": "Microsoft.Network/networkInterfaces",
@@ -139,41 +73,61 @@
       "tags": {
         "provider": "[toUpper(parameters('elasticTags').provider)]"
       },
-      "dependsOn": [
-        "[variables('publicIpName')]"
-      ],
-      "properties": "[union(variables('nicProperties'), variables('nsgIpConfig'))]"
-    },
-    {
-      "apiVersion": "2019-03-01",
-      "type": "Microsoft.Compute/virtualMachines",
-      "name": "[concat(variables('namespace'), parameters('index'))]",
-      "location": "[parameters('vm').shared.location]",
-      "tags": {
-        "provider": "[toUpper(parameters('elasticTags').provider)]"
-      },
-      "dependsOn": [
-        "[concat('Microsoft.Network/networkInterfaces/', variables('namespace'), parameters('index'), '-nic')]"
-      ],
       "properties": {
-        "availabilitySet": {
-          "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('availabilitySet'))]"
+        "primary": true,
+        "enableAcceleratedNetworking": "[equals(parameters('vm').acceleratedNetworking, 'Yes')]",
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'ccd-cluster-nsg')]"
         },
-        "hardwareProfile": {
-          "vmSize": "[parameters('vm').size]"
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[parameters('vm').shared.subnetId]"
+              },
+              "loadBalancerBackendAddressPools": "[parameters('vm').backendPools]",
+              "applicationSecurityGroups": [
+                {
+                  "id": "[resourceId('Microsoft.Network/applicationSecurityGroups', concat(variables('namespace'), 'asg'))]"
+              }
+            ]
+          }
+        }
+      ]
+     }
+   },
+   {
+     "apiVersion": "2019-03-01",
+     "type": "Microsoft.Compute/virtualMachines",
+     "name": "[concat(variables('namespace'), parameters('index'))]",
+     "location": "[parameters('vm').shared.location]",
+     "tags": {
+       "provider": "[toUpper(parameters('elasticTags').provider)]"
+     },
+     "dependsOn": [
+       "[concat('Microsoft.Network/networkInterfaces/', variables('namespace'), parameters('index'), '-nic')]"
+     ],
+     "properties": {
+       "availabilitySet": {
+         "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('availabilitySet'))]"
+       },
+       "hardwareProfile": {
+         "vmSize": "[parameters('vm').size]"
+       },
+       "osProfile": "[variables('osProfile')]",
+       "storageProfile": {
+         "imageReference": "[parameters('vm').imageReference]",
+         "osDisk": {
+           "name": "[concat(variables('namespace'), parameters('index'), '-osdisk')]",
+           "managedDisk": {
+             "storageAccountType": "[parameters('vm').storageAccountType]"
+           },
+           "caching": "ReadWrite",
+           "createOption": "FromImage"
         },
-        "osProfile": "[variables('osProfile')]",
-        "storageProfile": {
-          "imageReference": "[parameters('vm').imageReference]",
-          "osDisk": {
-            "name": "[concat(variables('namespace'), parameters('index'), '-osdisk')]",
-            "managedDisk": {
-              "storageAccountType": "[parameters('vm').storageAccountType]"
-            },
-            "caching": "ReadWrite",
-            "createOption": "FromImage"
-          },
-          "dataDisks": "[parameters('dataDisks').disks]"
+        "dataDisks": "[parameters('dataDisks').disks]"
         },
         "networkProfile": {
           "networkInterfaces": [

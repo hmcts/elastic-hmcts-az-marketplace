@@ -63,7 +63,7 @@ fi
 
 #Script Parameters
 CLUSTER_NAME="elasticsearch"
-KIBANA_VERSION="6.4.1"
+KIBANA_VERSION="7.2.0"
 #Default internal load balancer ip
 ELASTICSEARCH_URL="http://10.0.0.4:9200"
 INSTALL_XPACK=0
@@ -403,8 +403,6 @@ install_apt_package()
   fi
 }
 
-install_yamllint()
-{
 install_yamllint()
 {
     log "[install_yamllint] installing yamllint"

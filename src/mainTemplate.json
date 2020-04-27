@@ -4,7 +4,7 @@
   "parameters": {
     "_artifactsLocation": {
       "type": "string",
-      "defaultValue": "https://raw.githubusercontent.com/elastic/azure-marketplace/master/src/",
+      "defaultValue": "https://raw.github.com/hmcts/elastic-hmcts-az-marketplace/hmcts-v7-upgrade/src/",
       "metadata": {
         "description": "The base URI where artifacts required by this template are located, including a trailing '/'"
       }
@@ -141,8 +141,8 @@
       }
     },
     "esHeapSize": {
-      "type": "int",
-      "defaultValue": 0,
+      "type": "string",
+      "defaultValue": "0",
       "metadata": {
         "description": "The size, in megabytes, of memory to allocate on each Elasticsearch node for the JVM heap. If unspecified, 50% of the available memory will be allocated to Elasticsearch heap, up to a maximum of 31744MB (~32GB)."
       }
@@ -523,14 +523,6 @@
         "description": "Size of the Logstash nodes"
       }
     },
-    "vmLogstashCount": {
-      "type": "int",
-      "defaultValue": 1,
-      "minValue": 1,
-      "metadata": {
-        "description": "The number of Logstash VMs to deploy"
-      }
-    },
     "vmLogstashAcceleratedNetworking": {
       "type": "string",
       "defaultValue": "Default",
@@ -544,8 +536,8 @@
       }
     },
     "logstashHeapSize": {
-      "type": "int",
-      "defaultValue": 0,
+      "type": "string",
+      "defaultValue": "0",
       "metadata": {
         "description": "The size, in megabytes, of memory to allocate to Logstash for the JVM heap. If unspecified, will default to 1GB"
       }
@@ -595,6 +587,14 @@
       "maxLength": 5,
       "metadata": {
         "description": "The prefix to use for resources and hostnames when naming virtual machines in the cluster. Can be up to 5 characters in length, must begin with an alphanumeric character and can contain alphanumeric and hyphen characters. Hostnames are used for resolution of master nodes so if you are deploying a cluster into an existing virtual network containing an existing Elasticsearch cluster, be sure to set this to a unique prefix to differentiate the hostnames of this cluster from an existing cluster"
+      }
+    },
+    "cnpEnv": {
+      "type": "string",
+      "defaultValue": "",
+      "maxLength": 10,
+      "metadata": {
+        "description": "CNP environment into which we're building this cluster, e.g. sprod, aat"
       }
     },
     "vmSizeDataNodes": {
@@ -736,9 +736,8 @@
       }
     },
     "vmDataDiskCount": {
-      "type": "int",
-      "defaultValue": 64,
-      "minValue": 0,
+      "type": "string",
+      "defaultValue": "64",
       "metadata": {
         "description": "Number of disks to attach to each data node in RAID 0 setup. If the number of disks selected is more than can be attached to the data node VM size, the maximum number of disks that can be attached will be used. If 1 disk is selected, it is not RAIDed. If 0 disks are selected, the temporary disk will be used to store Elasticsearch data. IMPORTANT: The temporary disk is ephemeral in nature so be sure you know the trade-offs when choosing 0 disks."
       }
@@ -766,7 +765,6 @@
     "vmDataNodeCount": {
       "type": "int",
       "defaultValue": 3,
-      "minValue": 1,
       "metadata": {
         "description": "Number of Elasticsearch data nodes"
       }
@@ -934,7 +932,6 @@
     "vmClientNodeCount": {
       "type": "int",
       "defaultValue": 0,
-      "minValue": 0,
       "metadata": {
         "description": "Number of Elasticsearch coordinating nodes to provision. A value of 0 puts the data nodes in the load balancer backend pool"
       }
@@ -1120,6 +1117,12 @@
         "description": "Password for the built-in 'elastic' user. Should be 12 characters or more, with a minimum of 6 characters"
       }
     },
+    "securityReadPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Password for the 'es_read' user with user (read-only) role. Should be 12 characters or more, with a minimum of 6 characters"
+      }
+    },
     "securityKibanaPassword": {
       "type": "securestring",
       "metadata": {
@@ -1136,18 +1139,6 @@
       "type": "securestring",
       "metadata": {
         "description": "Password for the built-in 'beats_system' user. Should be 12 characters or more, with a minimum of 6 characters. Required for Elasticsearch 6.3.0+ when xpackPlugins is 'Yes'"
-      }
-    },
-    "securityApmPassword": {
-      "type": "securestring",
-      "metadata": {
-        "description": "Password for the built-in 'apm_system' user. Should be 12 characters or more, with a minimum of 6 characters. Required for Elasticsearch 6.5.0+ when xpackPlugins is 'Yes'"
-      }
-    },
-    "securityRemoteMonitoringPassword": {
-      "type": "securestring",
-      "metadata": {
-        "description": "Password for the built-in 'remote_monitoring_user' user. Should be 12 characters or more, with a minimum of 6 characters. Required for Elasticsearch 6.5.0+ when xpackPlugins is 'Yes'"
       }
     },
     "location": {
@@ -1298,9 +1289,24 @@
       "metadata": {
         "description": "The Base-64 encoded certificate (.cer) used to secure the HTTP layer of Elasticsearch. Used by the Application Gateway to whitelist certificates used by the backend pool. Must be set if using esHttpCertBlob to secure the HTTP layer of Elasticsearch"
       }
+    },
+    "logAnalyticsId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Log Anytics ID. Used by VMs for logging."
+      }
+    },
+    "logAnalyticsKey": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Log Anytics Key. Used by VMs for logging."
+      }
     }
   },
   "variables": {
+    "_artifactsLocation": "[concat(parameters('_artifactsLocation'), '/')]",
     "esVersionMajor": "[int(split(parameters('esVersion'), '.')[0])]",
     "esVersionMinor": "[int(split(parameters('esVersion'), '.')[1])]",
     "sharedTemplateUrl": "[uri(parameters('_artifactsLocation'), concat('partials/shared-resources.json', parameters('_artifactsLocationSasToken')))]",
@@ -1333,11 +1339,10 @@
       "transportCaCertPassword": "[parameters('esTransportCaCertPassword')]",
       "transportCertPassword": "[parameters('esTransportCertPassword')]",
       "securityAdminPwd": "[parameters('securityAdminPassword')]",
+      "securityReadPwd": "[parameters('securityReadPassword')]",
       "securityKibanaPwd": "[parameters('securityKibanaPassword')]",
       "securityLogstashPwd": "[parameters('securityLogstashPassword')]",
       "securityBeatsPwd": "[parameters('securityBeatsPassword')]",
-      "securityApmPwd": "[parameters('securityApmPassword')]",
-      "securityRemoteMonitoringPwd": "[parameters('securityRemoteMonitoringPassword')]",
       "securityBootstrapPwd": "[if(not(empty(parameters('securityBootstrapPassword'))),parameters('securityBootstrapPassword'),uniqueString(resourceGroup().id, deployment().name, parameters('securityAdminPassword')))]",
       "samlMetadataUri": "[parameters('samlMetadataUri')]",
       "samlServiceProviderUri": "[parameters('samlServiceProviderUri')]"
@@ -1347,6 +1352,10 @@
       "existing": "[parameters('vNetExistingResourceGroup')]"
     },
     "dataSkuSettings": {
+      "Standard_A0_v2": {
+        "dataDisks": 1,
+        "storageAccountType": "Standard_LRS"
+      },
       "Standard_A1_v2": {
         "dataDisks": 2,
         "storageAccountType": "Standard_LRS"
@@ -1355,12 +1364,48 @@
         "dataDisks": 4,
         "storageAccountType": "Standard_LRS"
       },
-      "Standard_A4_v2": {
+      "Standard_A3_v2": {
         "dataDisks": 8,
         "storageAccountType": "Standard_LRS"
       },
-      "Standard_A8_v2": {
+      "Standard_A4_v2": {
         "dataDisks": 16,
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_A5_v2": {
+        "dataDisks": 4,
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_A6_v2": {
+        "dataDisks": 8,
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_A7_v2": {
+        "dataDisks": 16,
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_A8_v2": {
+        "dataDisks": 32,
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_A9_v2": {
+        "dataDisks": 64,
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_A10_v2": {
+        "dataDisks": 32,
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_A11_v2": {
+        "dataDisks": 64,
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_D1": {
+        "dataDisks": 4,
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_D2": {
+        "dataDisks": 8,
         "storageAccountType": "Standard_LRS"
       },
       "Standard_A2m_v2": {
@@ -1373,6 +1418,14 @@
       },
       "Standard_A8m_v2": {
         "dataDisks": 16,
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_D13": {
+        "dataDisks": 32,
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_D14": {
+        "dataDisks": 64,
         "storageAccountType": "Standard_LRS"
       },
       "Standard_D1_v2": {
@@ -1859,7 +1912,7 @@
       "[variables('lbBackEndPoolsAdded')]",
       "[variables('lbBackEndPoolsRemoved')]"
     ],
-    "clientResourceIndex": "[mod(add(parameters('vmClientNodeCount'),2),add(parameters('vmClientNodeCount'),1))]",
+    "clientResourceIndex": "[mod(add(int(parameters('vmClientNodeCount')),2),add(int(parameters('vmClientNodeCount')),1))]",
     "storageAccountOverrides": {
       "Default": "[variables('dataSkuSettings')[parameters('vmSizeDataNodes')].storageAccountType]",
       "Standard": "Standard_LRS"
@@ -1867,7 +1920,7 @@
     "resolvedStorageAccountType": "[variables('storageAccountOverrides')[parameters('storageAccountType')]]",
     "tmpVmSizeDataDisks": "[variables('dataSkuSettings')[parameters('vmSizeDataNodes')].dataDisks]",
     "dataDiskOptions": [
-      "[parameters('vmDataDiskCount')]",
+      "[int(parameters('vmDataDiskCount'))]",
       "[variables('tmpVmSizeDataDisks')]"
     ],
     "resolvedDataDiskCount": "[min(variables('dataDiskOptions'))]",
@@ -1906,7 +1959,6 @@
       "kibanaHttps": "[variables('kibanaHttps')]",
       "kibanaYaml": "[parameters('kibanaAdditionalYaml')]",
       "vmSizeLogstash": "[parameters('vmSizeLogstash')]",
-      "vmLogstashCount": "[parameters('vmLogstashCount')]",
       "vmLogstashAcceleratedNetworking": "[parameters('vmLogstashAcceleratedNetworking')]",
       "logstash": "[parameters('logstash')]",
       "logstashHeapSize": "[parameters('logstashHeapSize')]",
@@ -1933,7 +1985,7 @@
       "subnet": {
         "name": "[parameters('vNetClusterSubnetName')]",
         "addressPrefix": "[parameters('vNetNewClusterSubnetAddressPrefix')]",
-        "loadbalancerIp": "[variables('vNetLoadBalancerIp')]"
+        "loadbalancerIp": "[parameters('vNetLoadBalancerIp')]"
       },
       "applicationGatewaySubnet": {
         "name": "[parameters('vNetAppGatewaySubnetName')]",
@@ -1973,7 +2025,7 @@
       "No": "empty/empty-kibana-ip-resources.json",
       "Yes": "empty/empty-kibana-ip-resources.json"
     },
-    "kibanaIpTemplateUrl": "[concat(variables('templateBaseUrl'), variables('kibanaIpTemplates')[variables('topologySettings').kibana])]"
+    "kibanaIpTemplateUrl": "[concat(variables('_artifactsLocation'), variables('kibanaIpTemplates')[variables('topologySettings').kibana])]"
   },
   "resources": [
     {
