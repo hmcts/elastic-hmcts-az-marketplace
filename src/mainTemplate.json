@@ -28,10 +28,8 @@
     },
     "esVersion": {
       "type": "string",
-      "defaultValue": "7.6.2",
+      "defaultValue": "7.7.0",
       "allowedValues": [
-        "6.4.3",
-        "6.5.4",
         "6.6.2",
         "6.7.2",
         "6.8.5",
@@ -41,7 +39,8 @@
         "7.3.2",
         "7.4.2",
         "7.5.2",
-        "7.6.2"
+        "7.6.2",
+        "7.7.0"
       ],
       "metadata": {
         "description": "Elastic Stack version to install"
@@ -141,8 +140,8 @@
       }
     },
     "esHeapSize": {
-      "type": "string",
-      "defaultValue": "0",
+      "type": "int",
+      "defaultValue": 0,
       "metadata": {
         "description": "The size, in megabytes, of memory to allocate on each Elasticsearch node for the JVM heap. If unspecified, 50% of the available memory will be allocated to Elasticsearch heap, up to a maximum of 31744MB (~32GB)."
       }
@@ -523,6 +522,14 @@
         "description": "Size of the Logstash nodes"
       }
     },
+    "vmLogstashCount": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "metadata": {
+        "description": "The number of Logstash VMs to deploy"
+      }
+    },
     "vmLogstashAcceleratedNetworking": {
       "type": "string",
       "defaultValue": "Default",
@@ -536,8 +543,8 @@
       }
     },
     "logstashHeapSize": {
-      "type": "string",
-      "defaultValue": "0",
+      "type": "int",
+      "defaultValue": 0,
       "metadata": {
         "description": "The size, in megabytes, of memory to allocate to Logstash for the JVM heap. If unspecified, will default to 1GB"
       }
@@ -736,8 +743,9 @@
       }
     },
     "vmDataDiskCount": {
-      "type": "string",
-      "defaultValue": "64",
+      "type": "int",
+      "defaultValue": 64,
+      "minValue": 0,
       "metadata": {
         "description": "Number of disks to attach to each data node in RAID 0 setup. If the number of disks selected is more than can be attached to the data node VM size, the maximum number of disks that can be attached will be used. If 1 disk is selected, it is not RAIDed. If 0 disks are selected, the temporary disk will be used to store Elasticsearch data. IMPORTANT: The temporary disk is ephemeral in nature so be sure you know the trade-offs when choosing 0 disks."
       }
@@ -765,6 +773,7 @@
     "vmDataNodeCount": {
       "type": "int",
       "defaultValue": 3,
+      "minValue": 1,
       "metadata": {
         "description": "Number of Elasticsearch data nodes"
       }
@@ -932,6 +941,7 @@
     "vmClientNodeCount": {
       "type": "int",
       "defaultValue": 0,
+      "minValue": 0,
       "metadata": {
         "description": "Number of Elasticsearch coordinating nodes to provision. A value of 0 puts the data nodes in the load balancer backend pool"
       }
@@ -1906,13 +1916,14 @@
       "backendPools": "[variables('backendPoolConfigurations')[parameters('loadBalancerType')]]"
     },
     "lbBackendPoolsRemoved": {
-      "backendPools": []
+      "backendPools": [
+      ]
     },
     "dataLoadBalancerOptions": [
       "[variables('lbBackEndPoolsAdded')]",
       "[variables('lbBackEndPoolsRemoved')]"
     ],
-    "clientResourceIndex": "[mod(add(int(parameters('vmClientNodeCount')),2),add(int(parameters('vmClientNodeCount')),1))]",
+    "clientResourceIndex": "[mod(add(parameters('vmClientNodeCount'),2),add(parameters('vmClientNodeCount'),1))]",
     "storageAccountOverrides": {
       "Default": "[variables('dataSkuSettings')[parameters('vmSizeDataNodes')].storageAccountType]",
       "Standard": "Standard_LRS"
@@ -1920,7 +1931,7 @@
     "resolvedStorageAccountType": "[variables('storageAccountOverrides')[parameters('storageAccountType')]]",
     "tmpVmSizeDataDisks": "[variables('dataSkuSettings')[parameters('vmSizeDataNodes')].dataDisks]",
     "dataDiskOptions": [
-      "[int(parameters('vmDataDiskCount'))]",
+      "[parameters('vmDataDiskCount')]",
       "[variables('tmpVmSizeDataDisks')]"
     ],
     "resolvedDataDiskCount": "[min(variables('dataDiskOptions'))]",
@@ -1959,6 +1970,7 @@
       "kibanaHttps": "[variables('kibanaHttps')]",
       "kibanaYaml": "[parameters('kibanaAdditionalYaml')]",
       "vmSizeLogstash": "[parameters('vmSizeLogstash')]",
+      "vmLogstashCount": "[parameters('vmLogstashCount')]",
       "vmLogstashAcceleratedNetworking": "[parameters('vmLogstashAcceleratedNetworking')]",
       "logstash": "[parameters('logstash')]",
       "logstashHeapSize": "[parameters('logstashHeapSize')]",
@@ -2037,7 +2049,8 @@
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
           "contentVersion": "1.0.0.0",
-          "resources": []
+          "resources": [
+          ]
         }
       }
     },
