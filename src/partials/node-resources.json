@@ -205,7 +205,7 @@
       }
     },
     {
-      "condition": "[greater(parameters('topologySettings').vmClientNodeCount, 0)]",
+      "condition": "[greater(int(parameters('topologySettings').vmClientNodeCount), 0)]",
       "name": "client-nodes",
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2019-05-01",
@@ -269,7 +269,7 @@
               "installScript": "[parameters('osSettings').extensionSettings.data]",
               "size": "[parameters('topologySettings').vmSizeDataNodes]",
               "storageAccountType": "[parameters('topologySettings').vmDataNodeStorageAccountType]",
-              "count": "[parameters('topologySettings').vmDataNodeCount]",
+              "count": "[int(parameters('topologySettings').vmDataNodeCount)]",
               "useBackendPools": "Yes",
               "backendPools": "[parameters('topologySettings').dataLoadBalancerBackEndPools]",
               "imageReference": "[parameters('osSettings').imageReference]",
