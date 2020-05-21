@@ -743,9 +743,8 @@
       }
     },
     "vmDataDiskCount": {
-      "type": "int",
-      "defaultValue": 64,
-      "minValue": 0,
+      "type": "string",
+      "defaultValue": "64",
       "metadata": {
         "description": "Number of disks to attach to each data node in RAID 0 setup. If the number of disks selected is more than can be attached to the data node VM size, the maximum number of disks that can be attached will be used. If 1 disk is selected, it is not RAIDed. If 0 disks are selected, the temporary disk will be used to store Elasticsearch data. IMPORTANT: The temporary disk is ephemeral in nature so be sure you know the trade-offs when choosing 0 disks."
       }
@@ -771,9 +770,8 @@
       }
     },
     "vmDataNodeCount": {
-      "type": "int",
-      "defaultValue": 3,
-      "minValue": 1,
+      "type": "string",
+      "defaultValue": "3",
       "metadata": {
         "description": "Number of Elasticsearch data nodes"
       }
@@ -939,9 +937,8 @@
       }
     },
     "vmClientNodeCount": {
-      "type": "int",
+      "type": "string",
       "defaultValue": 0,
-      "minValue": 0,
       "metadata": {
         "description": "Number of Elasticsearch coordinating nodes to provision. A value of 0 puts the data nodes in the load balancer backend pool"
       }
@@ -1923,7 +1920,7 @@
       "[variables('lbBackEndPoolsAdded')]",
       "[variables('lbBackEndPoolsRemoved')]"
     ],
-    "clientResourceIndex": "[mod(add(parameters('vmClientNodeCount'),2),add(parameters('vmClientNodeCount'),1))]",
+    "clientResourceIndex": "[mod(add(int(parameters('vmClientNodeCount')),2),add(int(parameters('vmClientNodeCount')),1))]",
     "storageAccountOverrides": {
       "Default": "[variables('dataSkuSettings')[parameters('vmSizeDataNodes')].storageAccountType]",
       "Standard": "Standard_LRS"
@@ -1931,7 +1928,7 @@
     "resolvedStorageAccountType": "[variables('storageAccountOverrides')[parameters('storageAccountType')]]",
     "tmpVmSizeDataDisks": "[variables('dataSkuSettings')[parameters('vmSizeDataNodes')].dataDisks]",
     "dataDiskOptions": [
-      "[parameters('vmDataDiskCount')]",
+      "[int(parameters('vmDataDiskCount'))]",
       "[variables('tmpVmSizeDataDisks')]"
     ],
     "resolvedDataDiskCount": "[min(variables('dataDiskOptions'))]",
