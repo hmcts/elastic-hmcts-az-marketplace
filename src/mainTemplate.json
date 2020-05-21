@@ -770,8 +770,8 @@
       }
     },
     "vmDataNodeCount": {
-      "type": "string",
-      "defaultValue": "3",
+      "type": "int",
+      "defaultValue": 3,
       "metadata": {
         "description": "Number of Elasticsearch data nodes"
       }
@@ -1946,7 +1946,7 @@
     "vNetLoadBalancerIp": "[if(equals('existing', parameters('vNetNewOrExisting')), parameters('vNetLoadBalancerIp'), if(contains(variables('newSubNetReservedStartAddresses'), parameters('vNetLoadBalancerIp')), variables('newSubNetFirstAvailableAddress'), parameters('vNetLoadBalancerIp')))]",
     "topologySettings": {
       "dataNodesAreMasterEligible": "[parameters('dataNodesAreMasterEligible')]",
-      "vmDataNodeCount": "[parameters('vmDataNodeCount')]",
+      "vmDataNodeCount": "[int(parameters('vmDataNodeCount'))]",
       "vmSizeDataNodes": "[parameters('vmSizeDataNodes')]",
       "vmDataNodeStorageAccountType": "[variables('dataSkuSettings')[parameters('vmSizeDataNodes')].storageAccountType]",
       "vmDataNodeAcceleratedNetworking": "[parameters('vmDataNodeAcceleratedNetworking')]",
