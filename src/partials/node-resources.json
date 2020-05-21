@@ -229,7 +229,7 @@
               "namespace": "[concat(parameters('commonVmSettings').namespacePrefix, 'client-')]",
               "installScript": "[parameters('osSettings').extensionSettings.client]",
               "size": "[parameters('topologySettings').vmSizeClientNodes]",
-              "count": "[parameters('topologySettings').vmClientNodeCount]",
+              "count": "[int(parameters('topologySettings').vmClientNodeCount)]",
               "storageAccountType": "Standard_LRS",
               "useBackendPools": "Yes",
               "backendPools": "[parameters('topologySettings').loadBalancerBackEndPools]",
