@@ -28,10 +28,8 @@
     },
     "esVersion": {
       "type": "string",
-      "defaultValue": "7.6.2",
+      "defaultValue": "7.7.0",
       "allowedValues": [
-        "6.4.3",
-        "6.5.4",
         "6.6.2",
         "6.7.2",
         "6.8.5",
@@ -41,7 +39,8 @@
         "7.3.2",
         "7.4.2",
         "7.5.2",
-        "7.6.2"
+        "7.6.2",
+        "7.7.0"
       ],
       "metadata": {
         "description": "Elastic Stack version to install"
@@ -1853,7 +1852,8 @@
       "backendPools": "[variables('backendPoolConfigurations')[parameters('loadBalancerType')]]"
     },
     "lbBackendPoolsRemoved": {
-      "backendPools": []
+      "backendPools": [
+      ]
     },
     "dataLoadBalancerOptions": [
       "[variables('lbBackEndPoolsAdded')]",
@@ -1981,7 +1981,8 @@
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
           "contentVersion": "1.0.0.0",
-          "resources": []
+          "resources": [
+          ]
         }
       }
     },
