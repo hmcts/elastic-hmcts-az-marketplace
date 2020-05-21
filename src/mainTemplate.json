@@ -1946,7 +1946,7 @@
     "vNetLoadBalancerIp": "[if(equals('existing', parameters('vNetNewOrExisting')), parameters('vNetLoadBalancerIp'), if(contains(variables('newSubNetReservedStartAddresses'), parameters('vNetLoadBalancerIp')), variables('newSubNetFirstAvailableAddress'), parameters('vNetLoadBalancerIp')))]",
     "topologySettings": {
       "dataNodesAreMasterEligible": "[parameters('dataNodesAreMasterEligible')]",
-      "vmDataNodeCount": "[int(parameters('vmDataNodeCount'))]",
+      "vmDataNodeCount": "[parameters('vmDataNodeCount')]",
       "vmSizeDataNodes": "[parameters('vmSizeDataNodes')]",
       "vmDataNodeStorageAccountType": "[variables('dataSkuSettings')[parameters('vmSizeDataNodes')].storageAccountType]",
       "vmDataNodeAcceleratedNetworking": "[parameters('vmDataNodeAcceleratedNetworking')]",
