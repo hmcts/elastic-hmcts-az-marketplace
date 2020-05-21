@@ -269,7 +269,7 @@
               "installScript": "[parameters('osSettings').extensionSettings.data]",
               "size": "[parameters('topologySettings').vmSizeDataNodes]",
               "storageAccountType": "[parameters('topologySettings').vmDataNodeStorageAccountType]",
-              "count": "[int(parameters('topologySettings').vmDataNodeCount)]",
+              "count": "[parameters('topologySettings').vmDataNodeCount]",
               "useBackendPools": "Yes",
               "backendPools": "[parameters('topologySettings').dataLoadBalancerBackEndPools]",
               "imageReference": "[parameters('osSettings').imageReference]",
